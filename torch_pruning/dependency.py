@@ -794,9 +794,16 @@ class DependencyGraph(object):
         # Graph tracing
         module2node = {} # create a mapping from nn.Module to tp.dependency.Node
         visited = set()
+        # tuple error fix from https://github.com/VainF/Torch-Pruning/issues/455
         for o in utils.flatten_as_list(out):
-            self._trace_computational_graph(
-                module2node, o.grad_fn, gradfn2module, reused, visited=visited)
+            if isinstance(o, tuple):  # 튜플이면 개별 요소 처리
+                for elem in o:
+                    if hasattr(elem, "grad_fn"):  # grad_fn 속성이 있는지 확인
+                        self._trace_computational_graph(
+                            module2node, elem.grad_fn, gradfn2module, reused, visited=visited)
+            elif hasattr(o, "grad_fn"):  # 튜플이 아닌 경우 정상 처리
+                self._trace_computational_graph(
+                    module2node, o.grad_fn, gradfn2module, reused, visited=visited)
 
         # TODO: Improving ViT pruning
         # This is a corner case for pruning ViT,
